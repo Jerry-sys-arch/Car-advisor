@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CarFront, 
   Wallet, 
@@ -11,10 +11,21 @@ import {
   TrendingDown,
   Cpu,
   Download,
-  Info
+  Info,
+  X,
+  MapPin,
+  Calendar,
+  Settings,
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { CARS } from './constants';
 import { Car, UserPreferences, Priority } from './types';
+
+interface RecCar extends Car {
+  score: number;
+  reasons: string[];
+}
 
 export default function App() {
   const [prefs, setPrefs] = useState<UserPreferences>({
@@ -23,48 +34,61 @@ export default function App() {
     priorities: ['performance'],
     mileageRange: 'medium',
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCar, setSelectedCar] = useState<RecCar | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const recommendations = useMemo(() => {
-    return CARS.map(car => {
-      let score = 0;
-      const reasons: string[] = [];
+  const recommendations = useMemo<RecCar[]>(() => {
+    if (!CARS) return [];
+    
+    return (CARS as Car[])
+      .map(car => {
+        let score = 0;
+        const reasons: string[] = [];
 
-      // 1. Budget Rule
-      if (car.price <= prefs.maxBudget) {
-        score += 40;
-        reasons.push(`Budget Optimized: RM ${car.price.toLocaleString()} is within RM ${prefs.maxBudget.toLocaleString()} limit.`);
-      } else if (car.price <= prefs.maxBudget * 1.1) {
-        score += 15;
-        reasons.push(`Budget Stretch: High-value option slightly above target budget.`);
-      }
-
-      // 2. Fuel Economy Rule
-      if (prefs.priorities.includes('fuel_economy')) {
-        if (car.fuelEconomy <= 5.8) {
-          score += 30;
-          reasons.push(`Efficiency Lead: Outstanding ${car.fuelEconomy} L/100km economy.`);
+        // 1. Budget Rule
+        if (car.price <= prefs.maxBudget) {
+          score += 40;
+          reasons.push(`Budget Optimized: RM ${car.price.toLocaleString()} is within RM ${prefs.maxBudget.toLocaleString()} limit.`);
+        } else if (car.price <= prefs.maxBudget * 1.1) {
+          score += 15;
+          reasons.push(`Budget Stretch: High-value option slightly above target budget.`);
         }
-      }
 
-      // 3. Performance Rule
-      if (prefs.priorities.includes('performance')) {
-        if (car.engine.includes('Turbo')) {
-          score += 35;
-          reasons.push(`Power Match: Turbocharged powertrain fulfills performance requirements.`);
+        // 2. Fuel Economy Rule
+        if (prefs.priorities.includes('fuel_economy')) {
+          if (car.fuelEconomy <= 5.8) {
+            score += 30;
+            reasons.push(`Efficiency Lead: Outstanding ${car.fuelEconomy} L/100km economy.`);
+          }
         }
-      }
 
-      // 4. Value Choice Rule
-      if (car.price < 90000) {
-        score += 10;
-        reasons.push("Market Opportunity: Competitive entry-segment pricing.");
-      }
+        // 3. Performance Rule
+        if (prefs.priorities.includes('performance')) {
+          if (car.engine.includes('Turbo')) {
+            score += 35;
+            reasons.push(`Power Match: Turbocharged powertrain fulfills performance requirements.`);
+          }
+        }
 
-      return { ...car, score, reasons };
-    })
-    .sort((a, b) => b.score - a.score)
-    .filter(car => car.score > 0);
-  }, [prefs]);
+        // 4. Value Choice Rule
+        if (car.price < 90000) {
+          score += 10;
+          reasons.push("Market Opportunity: Competitive entry-segment pricing.");
+        }
+
+        return { ...car, score, reasons };
+      })
+      .sort((a, b) => b.score - a.score)
+      .filter(car => car.score > 0)
+      .filter(car => {
+        if (!searchTerm) return true;
+        return (
+          car.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          car.brand.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+  }, [prefs, searchTerm]);
 
   const topMatch = recommendations[0];
   const otherMatches = recommendations.slice(1);
@@ -78,96 +102,117 @@ export default function App() {
     }));
   };
 
+  const handleExport = () => {
+    setIsExporting(true);
+    const data = JSON.stringify({ prefs, recommendations }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'car-advisor-report.json';
+    link.click();
+    setTimeout(() => setIsExporting(false), 1000);
+  };
+
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#F8FAFC] text-slate-900 font-sans overflow-hidden">
       {/* Sidebar - Rule Configuration */}
-      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm shrink-0">
-        <div className="p-6 border-b border-slate-100 bg-slate-900 text-white">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center text-[10px] font-bold shadow-lg shadow-blue-500/20">
-              <Cpu className="w-4 h-4" />
+      <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm shrink-0">
+        <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+              <CarFront className="w-6 h-6" />
             </div>
-            <h1 className="text-lg font-bold tracking-tight italic">AutoExpert</h1>
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-slate-900">CarAdvisor</h1>
+              <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest">Used Car Recommender</p>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Rule-Based System v2.1</p>
         </div>
 
-        <div className="flex-1 p-6 space-y-8 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 p-8 space-y-10 overflow-y-auto custom-scrollbar">
           {/* Budget Constraint */}
           <div>
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Budget Constraint</h3>
-            <div className="space-y-4">
-              <div className="relative h-1.5 w-full bg-slate-100 rounded-full">
-                <div 
-                  className="absolute left-0 top-0 h-full bg-blue-600 rounded-full transition-all duration-300" 
-                  style={{ width: `${((prefs.maxBudget - 50000) / 150000) * 100}%` }}
-                />
+            <div className="flex justify-between items-end mb-6">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Adjust Budget</h3>
+              <div className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-bold font-mono">
+                RM {prefs.maxBudget.toLocaleString()}
               </div>
-              <input 
-                type="range" 
-                min="50000" 
-                max="200000" 
-                step="5000"
-                value={prefs.maxBudget}
-                onChange={(e) => setPrefs({...prefs, maxBudget: parseInt(e.target.value)})}
-                className="w-full h-1 bg-transparent appearance-none cursor-pointer accent-blue-600"
-              />
-              <div className="flex justify-between items-center text-xs font-medium">
-                <span className="text-slate-400">RM 50k</span>
-                <span className="text-blue-600 font-mono font-bold">RM {prefs.maxBudget.toLocaleString()}</span>
+            </div>
+            <div className="space-y-6">
+              <div className="relative pt-1 px-1">
+                <input 
+                  type="range" 
+                  min="50000" 
+                  max="200000" 
+                  step="5000"
+                  value={prefs.maxBudget}
+                  onChange={(e) => setPrefs({...prefs, maxBudget: parseInt(e.target.value)})}
+                  className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600 hover:accent-indigo-700 transition-all"
+                />
+                <div className="flex justify-between mt-3 px-1">
+                  <span className="text-[10px] font-bold text-slate-400">RM 50k</span>
+                  <span className="text-[10px] font-bold text-slate-400">RM 200k+</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Performance Logic */}
           <div className="space-y-4">
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Inference Logic</h3>
-            <div className="space-y-2">
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">Core Preferences</h3>
+            <div className="grid gap-3">
               {[
-                { id: 'performance', label: 'Turbocharged Only', icon: Zap },
-                { id: 'fuel_economy', label: 'Fuel Efficiency', icon: Fuel },
-                { id: 'style', label: 'Premium Trim', icon: CarFront }
+                { id: 'performance', label: 'Performance / Turbo', icon: Zap, desc: 'Prioritize power and driving dynamics' },
+                { id: 'fuel_economy', label: 'Fuel Efficient', icon: Fuel, desc: 'Optimized for daily city commuting' },
+                { id: 'style', label: 'Premium / High-End', icon: ShieldCheck, desc: 'Focus on interior quality and features' }
               ].map((p) => (
-                <label 
+                <button 
                   key={p.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-all ${
+                  onClick={() => togglePriority(p.id as Priority)}
+                  className={`flex items-start gap-4 p-4 rounded-2xl text-left border transition-all active:scale-[0.98] ${
                     prefs.priorities.includes(p.id as Priority)
-                    ? 'bg-blue-50 border-blue-200'
-                    : 'bg-white border-slate-100 hover:border-slate-200'
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100'
+                    : 'bg-white border-slate-100 hover:border-slate-200 text-slate-600'
                   }`}
                 >
-                  <input 
-                    type="checkbox" 
-                    checked={prefs.priorities.includes(p.id as Priority)}
-                    onChange={() => togglePriority(p.id as Priority)}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-0"
-                  />
-                  <div className="flex items-center gap-2">
-                    <p.icon className={`w-3.5 h-3.5 ${prefs.priorities.includes(p.id as Priority) ? 'text-blue-600' : 'text-slate-400'}`} />
-                    <span className={`text-xs font-bold ${prefs.priorities.includes(p.id as Priority) ? 'text-blue-900' : 'text-slate-600'}`}>
+                  <div className={`mt-0.5 p-2 rounded-lg ${
+                    prefs.priorities.includes(p.id as Priority) ? 'bg-white/20' : 'bg-slate-50'
+                  }`}>
+                    <p.icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className={`block text-xs font-bold leading-none mb-1 ${
+                      prefs.priorities.includes(p.id as Priority) ? 'text-white' : 'text-slate-900'
+                    }`}>
                       {p.label}
                     </span>
+                    <span className={`text-[10px] leading-tight ${
+                      prefs.priorities.includes(p.id as Priority) ? 'text-white/80' : 'text-slate-400'
+                    }`}>
+                      {p.desc}
+                    </span>
                   </div>
-                </label>
+                </button>
               ))}
             </div>
           </div>
 
           {/* System Status */}
-          <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl space-y-2">
+          <div className="p-5 bg-slate-900 rounded-3xl space-y-3 shadow-xl">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-              <span className="text-[10px] font-black text-blue-800 uppercase tracking-tighter">{recommendations.length} Rules Satisfied</span>
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-[10px] font-bold text-white uppercase tracking-widest">Active Filters</span>
             </div>
-            <p className="text-[11px] text-blue-600/80 leading-relaxed font-medium">
-              System currently analyzing {CARS.length} dataset entries for structural compatibility.
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Found <span className="text-white font-bold">{recommendations.length} cars</span> in our vetted inventory matching your current requirements.
             </p>
           </div>
         </div>
 
-        <div className="p-6 mt-auto">
-          <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-600/20 active:scale-95 transition-all hover:bg-blue-700">
-            Execute Inference
+        <div className="p-8 mt-auto bg-slate-50/50">
+          <button className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 active:scale-95 transition-all hover:bg-indigo-700 uppercase tracking-widest">
+            Search Available Units
           </button>
         </div>
       </aside>
@@ -175,74 +220,108 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <header className="h-24 bg-white border-b border-slate-200 px-10 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 font-sans tracking-tight">Inference Results</h2>
-            <p className="text-sm text-slate-500 font-medium">AutoExpert found {recommendations.length} optimal matches for your current logic config.</p>
+        <header className="h-28 bg-white border-b border-slate-200 px-12 flex items-center justify-between shrink-0">
+          <div className="max-w-md w-full">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+              <input 
+                type="text"
+                placeholder="Search models (e.g. Honda City)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-slate-100/50 border-transparent focus:border-indigo-100 focus:bg-white focus:ring-4 focus:ring-indigo-50/50 rounded-2xl text-sm font-medium transition-all outline-none"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-8">
             <div className="text-right">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Confidence Score</p>
-              <p className="text-xl font-mono font-bold text-green-600">98.4%</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Match Accuracy</p>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-black text-slate-900 tracking-tight">98.4%</span>
+                <ShieldCheck className="w-5 h-5 text-indigo-600" />
+              </div>
             </div>
-            <div className="w-12 h-12 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer">
-              <Search className="w-5 h-5" />
-            </div>
+            <div className="w-px h-10 bg-slate-200" />
+            <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+              <Settings className="w-4 h-4" />
+              Sort Options
+            </button>
           </div>
         </header>
 
         {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-          <div className="grid grid-cols-2 gap-8 pb-10">
+        <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+          <div className="grid grid-cols-2 gap-10 pb-12">
             <AnimatePresence mode="popLayout">
               {topMatch && (
                 <motion.div 
                   key={topMatch.model}
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="col-span-2 bg-white rounded-3xl border-2 border-blue-500 shadow-2xl p-10 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden ring-4 ring-blue-50"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="col-span-2 bg-white rounded-[40px] border border-slate-200 shadow-2xl shadow-indigo-900/5 p-12 flex flex-col lg:flex-row items-center gap-12 relative overflow-hidden group"
                 >
-                  <div className="absolute top-0 right-0 bg-blue-600 text-white px-5 py-2 rounded-bl-2xl font-bold text-[10px] tracking-widest uppercase shadow-lg shadow-blue-500/20">
-                    Highest Confidence Match
+                  <div className="absolute top-8 right-8 bg-indigo-600 text-white px-5 py-2 rounded-full font-black text-[10px] tracking-widest uppercase shadow-lg shadow-indigo-600/30">
+                    Editor's Choice
                   </div>
                   
-                  <div className="w-64 h-40 bg-slate-100 rounded-2xl flex items-center justify-center shrink-0 group relative overflow-hidden">
-                    <CarFront className="w-24 h-24 text-slate-300 group-hover:scale-110 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="w-full lg:w-[480px] h-[320px] bg-slate-50 rounded-[32px] overflow-hidden group-hover:shadow-inner transition-all flex items-center justify-center">
+                    {topMatch.image ? (
+                      <img 
+                        src={topMatch.image} 
+                        alt={topMatch.model} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <CarFront className="w-32 h-32 text-slate-200" />
+                    )}
                   </div>
 
-                  <div className="flex-1 w-full space-y-6">
-                    <div className="flex justify-between items-start w-full">
-                      <div className="space-y-1">
-                        <span className="text-xs font-black text-blue-600 uppercase tracking-widest">{topMatch.brand}</span>
-                        <h3 className="text-4xl font-black text-slate-900 leading-tight">{topMatch.model}</h3>
+                  <div className="flex-1 w-full space-y-8">
+                    <div className="space-y-2">
+                       <div className="flex items-center gap-2">
+                         <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-[10px] font-black uppercase tracking-tighter">{topMatch.brand}</span>
+                         <span className="text-[10px] font-bold text-slate-400">Certified Pre-Owned</span>
+                       </div>
+                       <h3 className="text-5xl font-black text-slate-900 tracking-tight leading-none">{topMatch.model}</h3>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Indicative Price</span>
+                        <div className="text-4xl font-black text-indigo-600 tracking-tight">RM {topMatch.price.toLocaleString()}</div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-3xl font-mono font-bold text-slate-900 tracking-tighter">RM {topMatch.price.toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Excl. Insurance</p>
+                      <div className="w-px h-10 bg-slate-100" />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Monthly Approx.</span>
+                        <div className="text-xl font-bold text-slate-900 tracking-tight">RM {Math.round(topMatch.price * 0.012).toLocaleString()}</div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-4 gap-4">
                       {[
-                        { label: 'Engine', value: topMatch.engine },
-                        { label: 'Economy', value: `${topMatch.fuelEconomy} L/100km` },
-                        { label: 'Trans.', value: topMatch.transmission },
-                        { label: 'Fuel', value: topMatch.fuel }
+                        { label: 'Engine', value: topMatch.engine, icon: Cpu },
+                        { label: 'Fuel', value: `${topMatch.fuelEconomy}L`, icon: Fuel },
+                        { label: 'Body', value: topMatch.body, icon: CarFront },
+                        { label: 'Trans.', value: topMatch.transmission, icon: Settings }
                       ].map((attr) => (
-                        <div key={attr.label} className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center space-y-1">
-                          <p className="text-[8px] text-slate-400 uppercase font-black tracking-widest">{attr.label}</p>
-                          <p className="text-[11px] font-bold font-mono text-slate-800">{attr.value}</p>
+                        <div key={attr.label} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-1 hover:border-indigo-100 transition-colors">
+                          <attr.icon className="w-3.5 h-3.5 text-slate-400 mb-1" />
+                          <p className="text-[9px] font-bold font-mono text-slate-900 uppercase">{attr.value}</p>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2">
-                       {topMatch.reasons.map((reason, i) => (
-                        <span key={i} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-bold flex items-center gap-1.5 border border-green-100">
-                          <CheckCircle2 className="w-3 h-3" /> {reason}
-                        </span>
-                       ))}
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={() => setSelectedCar(topMatch)}
+                        className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-indigo-600 transition-all shadow-xl shadow-slate-900/10 hover:shadow-indigo-600/20 active:scale-95"
+                      >
+                        Explore Vehicle Details
+                      </button>
+                      <button className="w-14 h-14 border border-slate-200 rounded-2xl flex items-center justify-center hover:bg-red-50 hover:border-red-100 text-slate-400 hover:text-red-500 transition-all bg-white group/fav">
+                        <Zap className="w-6 h-6 group-hover/fav:fill-current" />
+                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -251,49 +330,63 @@ export default function App() {
               {otherMatches.map((car, idx) => (
                 <motion.div
                   key={car.model}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col group hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/5 transition-all"
+                  transition={{ delay: idx * 0.1 }}
+                  className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 flex flex-col group hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-900/5 transition-all overflow-hidden"
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
-                      <CarFront className="w-8 h-8 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Match Score: {car.score}</span>
-                      <div className="text-xl font-mono font-bold text-slate-900 mt-1">RM {car.price.toLocaleString()}</div>
+                  <div className="aspect-[16/10] bg-slate-50 rounded-2xl mb-8 overflow-hidden relative">
+                    {car.image ? (
+                      <img src={car.image} alt={car.model} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-200">
+                        <CarFront className="w-16 h-16" />
+                      </div>
+                    )}
+                    <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur shadow-sm rounded-lg text-[10px] font-black text-indigo-600">
+                      RM {car.price.toLocaleString()}
                     </div>
                   </div>
                   
-                  <div className="space-y-1 mb-6">
-                    <h3 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">{car.model}</h3>
-                    <p className="text-xs text-slate-500 font-medium">{car.body} • {car.engine} • {car.fuelEconomy}L Economy</p>
+                  <div className="mb-8">
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{car.brand}</span>
+                    <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors mt-1 mb-2 tracking-tight">{car.model}</h3>
+                    <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
+                      <span className="flex items-center gap-1"><Cpu className="w-3 h-3" /> {car.engine}</span>
+                      <span className="w-1 h-1 bg-slate-200 rounded-full" />
+                      <span className="flex items-center gap-1"><Settings className="w-3 h-3" /> {car.transmission}</span>
+                    </div>
                   </div>
 
-                  <div className="mt-auto pt-6 border-t border-slate-50 flex gap-3">
-                    <button className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-slate-900/5 hover:shadow-blue-500/20 active:scale-95">
+                  <div className="mt-auto flex gap-4">
+                    <button 
+                      onClick={() => setSelectedCar(car)}
+                      className="flex-1 py-3.5 bg-slate-100 text-slate-900 font-black text-[11px] rounded-[14px] hover:bg-indigo-600 hover:text-white transition-all active:scale-[0.98] uppercase tracking-widest"
+                    >
                       View Details
                     </button>
-                    <button className="w-12 h-12 border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-50 text-slate-400 hover:text-red-500 transition-colors bg-white">
-                      <Zap className="w-4 h-4" />
+                    <button className="w-11 h-11 border border-slate-100 bg-white rounded-[14px] flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all transition-colors active:scale-90">
+                      <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
                 </motion.div>
               ))}
 
               {recommendations.length === 0 && (
-                <div className="col-span-2 py-20 text-center space-y-6">
-                  <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-300">
-                    <AlertCircle className="w-10 h-10" />
+                <div className="col-span-2 py-32 text-center space-y-8">
+                  <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto text-red-500 border-4 border-white shadow-xl">
+                    <AlertCircle className="w-12 h-12" />
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-xl font-bold text-slate-900">Logic Constraint Conflict</p>
-                    <p className="text-sm text-slate-400 max-w-xs mx-auto">None of the available datasheet entries satisfy the current rule parameters.</p>
+                  <div className="space-y-3">
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight">No Matching Vehicles</h3>
+                    <p className="text-slate-500 max-w-sm mx-auto font-medium">We couldn't find any cars that satisfy your current rule-set within RM {prefs.maxBudget.toLocaleString()}.</p>
                   </div>
                   <button 
-                    onClick={() => setPrefs({ ...prefs, maxBudget: 200000, priorities: [] })}
-                    className="text-blue-600 text-xs font-black uppercase tracking-widest border-b-2 border-blue-600 pb-1"
+                    onClick={() => {
+                        setPrefs({ ...prefs, maxBudget: 200000, priorities: [] });
+                        setSearchTerm('');
+                    }}
+                    className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 active:scale-95 transition-all"
                   >
                     Reset System Parameters
                   </button>
@@ -304,56 +397,170 @@ export default function App() {
         </div>
 
         {/* Footer Activity Trace */}
-        <footer className="h-32 bg-slate-100 border-t border-slate-200 p-8 flex gap-16 shrink-0 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-white/10 to-transparent pointer-events-none" />
-          
-          <div className="flex flex-col space-y-3 min-w-[300px]">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Info className="w-3 h-3" /> Applied Logic Trace
-            </span>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_4px_rgba(59,130,246,0.5)]"></span> 
-                IF Price {'<'} RM {prefs.maxBudget.toLocaleString()}
-              </div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_4px_rgba(59,130,246,0.5)]"></span> 
-                AND Body == Sedan
-              </div>
-              {prefs.priorities.map(p => (
-                <div key={p} className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shadow-[0_0_4px_rgba(59,130,246,0.5)]"></span> 
-                  AND {p.replace('_', ' ').toUpperCase()} Logic
+        <footer className="h-32 bg-white border-t border-slate-200 px-12 flex items-center justify-between shrink-0">
+          <div className="flex gap-12">
+            <div className="space-y-4 min-w-[320px]">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Info className="w-3.5 h-3.5 text-indigo-500" /> Active Logic Trace
+              </span>
+              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <div className="w-1 h-1 bg-indigo-400 rounded-full" /> 
+                  Price {'<'} RM {prefs.maxBudget.toLocaleString()}
                 </div>
-              ))}
+                {prefs.priorities.map(p => (
+                  <div key={p} className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <div className="w-1 h-1 bg-indigo-400 rounded-full" /> 
+                    {p.replace('_', ' ').toUpperCase()} Enabled
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-end gap-10">
-            <div className="text-right space-y-1">
-              <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Export Inference Report</p>
-              <p className="text-[10px] text-slate-400 italic font-medium">Dataset JSON, PDF Analysis, CSV logs</p>
+          <div className="flex items-center gap-10">
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">System Report</p>
+              <p className="text-[9px] text-slate-400 font-bold italic tracking-tighter uppercase">Comprehensive Market Comparison</p>
             </div>
-            <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 shadow-sm hover:shadow-md hover:border-blue-200 transition-all active:scale-95">
-              <Download className="w-4 h-4 text-blue-600" /> Export System Logs
+            <button 
+              onClick={handleExport}
+              disabled={isExporting}
+              className={`flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black shadow-2xl transition-all active:scale-95 ${isExporting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-600 shadow-indigo-900/20'}`}
+            >
+              {isExporting ? (
+                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isExporting ? 'Generating...' : 'Export Results'}
             </button>
           </div>
         </footer>
       </main>
-      
+
+      {/* Details Modal */}
+      <AnimatePresence>
+        {selectedCar && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 md:p-12">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedCar(null)}
+              className="absolute inset-0 bg-slate-900/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-5xl bg-white rounded-[48px] shadow-2xl overflow-hidden flex flex-col md:flex-row h-full max-h-[85vh]"
+            >
+              <button 
+                onClick={() => setSelectedCar(null)}
+                className="absolute top-8 right-8 z-10 w-12 h-12 bg-white/20 hover:bg-white/40 backdrop-blur rounded-full flex items-center justify-center text-white transition-all active:scale-90"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="w-full md:w-[55%] relative h-[40vh] md:h-full bg-slate-50">
+                {selectedCar.image ? (
+                   <img src={selectedCar.image} alt={selectedCar.model} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                   <div className="w-full h-full flex items-center justify-center text-slate-200">
+                     <CarFront className="w-32 h-32" />
+                   </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent pointer-events-none" />
+                <div className="absolute bottom-12 left-12">
+                  <span className="px-3 py-1 bg-white/20 backdrop-blur border border-white/30 text-white rounded-md text-[10px] font-black uppercase tracking-[0.2em] mb-3 block w-fit">Authentic Listing</span>
+                  <h2 className="text-6xl font-black text-white tracking-tighter leading-none">{selectedCar.model}</h2>
+                </div>
+              </div>
+
+              <div className="flex-1 p-12 overflow-y-auto custom-scrollbar flex flex-col">
+                <div className="flex justify-between items-start mb-10">
+                  <div className="space-y-1">
+                    <span className="text-xs font-black text-indigo-600 uppercase tracking-widest">Pricing Structure</span>
+                    <div className="text-5xl font-black text-slate-900 tracking-tighter">RM {selectedCar.price.toLocaleString()}</div>
+                  </div>
+                  <div className="p-4 bg-indigo-50 rounded-2xl">
+                     <ShieldCheck className="w-8 h-8 text-indigo-600" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 mb-12">
+                   {[
+                     { label: 'Body Style', value: selectedCar.body, icon: CarFront },
+                     { label: 'Drivetrain', value: selectedCar.engine, icon: Cpu },
+                     { label: 'Efficiency', value: `${selectedCar.fuelEconomy} L/100km`, icon: Fuel },
+                     { label: 'Transmission', value: selectedCar.transmission, icon: Settings },
+                     { label: 'Region', value: 'Malaysia (KL/Sel)', icon: MapPin },
+                     { label: 'Availability', value: 'Immediate Stock', icon: Calendar }
+                   ].map(item => (
+                     <div key={item.label} className="space-y-2">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.label}</span>
+                       <div className="flex items-center gap-2 text-slate-900">
+                         <item.icon className="w-4 h-4 text-indigo-500" />
+                         <span className="text-sm font-black tracking-tight">{item.value}</span>
+                       </div>
+                     </div>
+                   ))}
+                </div>
+
+                <div className="space-y-4 mb-12">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Why it works for you</span>
+                  <div className="space-y-3">
+                    {selectedCar.reasons.map((reason, i) => (
+                      <div key={i} className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl text-xs font-bold text-slate-600 leading-relaxed">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                        {reason}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-auto grid grid-cols-2 gap-4">
+                  <button className="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-[0.98]">
+                    Schedule Test Drive
+                  </button>
+                  <button className="py-4 bg-slate-100 text-slate-900 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all active:scale-[0.98]">
+                    Contact Specialist
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+          width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e2e8f0;
-          border-radius: 10px;
+          background: #E2E8F0;
+          border-radius: 20px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #cbd5e1;
+          background: #CBD5E1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          width: 24px;
+          height: 24px;
+          background: #4F46E5;
+          border: 4px solid white;
+          border-radius: 50%;
+          cursor: pointer;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+          transition: all 0.2s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+          transform: scale(1.1);
+          background: #4338CA;
         }
       `}</style>
     </div>
