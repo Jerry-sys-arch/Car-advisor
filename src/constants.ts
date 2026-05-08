@@ -10,7 +10,7 @@ export const CARS: Car[] = [
     engine: "1.5L",
     transmission: "CVT",
     fuelEconomy: 5.6,
-    image: "https://images.unsplash.com/photo-1609521263047-f8f205293f24?q=80&w=1000&auto=format&fit=crop"
+    image: "pic\\Honda city 1.5L S.jpg"
   },
   {
     brand: "Honda",
@@ -21,7 +21,7 @@ export const CARS: Car[] = [
     engine: "1.5L",
     transmission: "CVT",
     fuelEconomy: 5.6,
-    image: "https://images.unsplash.com/photo-1590362891991-f776e747a588?q=80&w=1000&auto=format&fit=crop"
+    image: "pic\\Honda city 1.5L E.jpg"
   },
   {
     brand: "Honda",
@@ -32,18 +32,18 @@ export const CARS: Car[] = [
     engine: "1.5L",
     transmission: "CVT",
     fuelEconomy: 5.6,
-    image: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35b?q=80&w=1000&auto=format&fit=crop"
+    image: "pic\\Honda city 1.5L V.jpg"
   },
   {
     brand: "Honda",
-    model: "Honda City 1.5L S Turbo",
+    model: "Honda Civic 1.5L RS",
     price: 149560,
     body: "Sedan",
     fuel: "Petrol",
     engine: "1.5L Turbo",
     transmission: "CVT",
     fuelEconomy: 6.3,
-    image: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=1000&auto=format&fit=crop"
+    image: "pic\\Honda civic 1.5L RS.jpg"
   },
   {
     brand: "Honda",
@@ -54,17 +54,17 @@ export const CARS: Car[] = [
     engine: "1.5L Turbo",
     transmission: "CVT",
     fuelEconomy: 6.0,
-    image: "https://images.unsplash.com/photo-1594502184342-2e12f877aa73?q=80&w=1000&auto=format&fit=crop"
+    image: "pic\\Honda civic 1.5L E.jpg"
   },
   {
     brand: "Honda",
-    model: "Honda City 1.5L S Turbo RS",
+    model: "Honda Civic 1.5L V",
     price: 144560,
     body: "Sedan",
     fuel: "Petrol",
     engine: "1.5L Turbo",
     transmission: "CVT",
     fuelEconomy: 6.0,
-    image: "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?q=80&w=1000&auto=format&fit=crop"
+    image: "pic\\Honda civic 1.5L V.jpg"
   }
 ];
