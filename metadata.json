@@ -1,0 +1,6 @@
+{
+  "name": "CarAdvisor",
+  "description": "A rule-based expert system for used car recommendations based on user preferences and budget.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
